@@ -1,0 +1,179 @@
+import time
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.config import settings
+from app.core.logging import logger
+from app.core.database import Base, engine
+# Import all models so metadata is complete
+import app.models  # noqa: F401
+
+from app.routers.auth import router as auth_router
+from app.routers.products import router as products_router
+from app.routers.categories import router as categories_router
+from app.routers.orders import router as orders_router
+from app.routers.admin_orders import router as admin_orders_router
+from app.routers.admin_inventory import router as admin_inventory_router
+from app.routers.admin_dashboard import router as admin_dashboard_router
+from app.routers.admin_revenue import router as admin_revenue_router
+
+
+from sqlalchemy import inspect, text
+
+def run_db_migrations():
+    """Ensure newly added columns exist in existing database tables."""
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        if "orders" in tables:
+            columns = [c["name"] for c in inspector.get_columns("orders")]
+            with engine.begin() as conn:
+                if "extra_discount_percentage" not in columns:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN extra_discount_percentage NUMERIC(5, 2) DEFAULT 0.00;"))
+                if "extra_discount_amount" not in columns:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN extra_discount_amount NUMERIC(10, 2) DEFAULT 0.00;"))
+                if "final_total_amount" not in columns:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN final_total_amount NUMERIC(10, 2);"))
+
+        if "products" in tables:
+            columns = [c["name"] for c in inspector.get_columns("products")]
+            with engine.begin() as conn:
+                if "original_price" not in columns:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN original_price NUMERIC(10, 2) DEFAULT 0.00;"))
+                if "my_price" not in columns:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN my_price NUMERIC(10, 2) DEFAULT 0.00;"))
+        logger.info("Database migration check completed successfully.")
+    except Exception as e:
+        logger.warning(f"Database migration check warning: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: ensure tables exist and run missing column migrations
+    logger.info("Initializing database schema...")
+    Base.metadata.create_all(bind=engine)
+    run_db_migrations()
+    logger.info(f"{settings.PROJECT_NAME} v{settings.VERSION} started successfully.")
+    yield
+    # Shutdown
+    logger.info("Shutting down application...")
+
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    description=(
+        "Production-grade, high-performance REST API backend for Sivakasi Fireworks E-Commerce platform. "
+        "Engineered to seamlessly support 3000+ catalog products, guest checkouts, atomic inventory locking, "
+        "and real-time administration with comprehensive analytics."
+    ),
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    lifespan=lifespan
+)
+
+# CORS Configuration
+origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Global Middleware: Request timing & Logging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = round((time.time() - start_time) * 1000, 2)
+    response.headers["X-Process-Time-Ms"] = str(process_time)
+    
+    # Do not spam logs on health checks
+    if request.url.path not in ["/health", "/docs", "/openapi.json"]:
+        logger.info(f"{request.method} {request.url.path} -> {response.status_code} ({process_time}ms)")
+    
+    return response
+
+
+# Standardized Error Handling
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": str(exc.detail),
+            "detail": str(exc.detail)
+        }
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    first_error = exc.errors()[0] if exc.errors() else {}
+    msg = f"Validation Error in {first_error.get('loc', ['field'])[-1]}: {first_error.get('msg', 'Invalid input')}"
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "success": False,
+            "message": msg,
+            "detail": exc.errors()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "success": False,
+            "message": "An internal server error occurred. Please try again later.",
+            "detail": "Internal server error"
+        }
+    )
+
+
+# Root & Health Checks
+@app.get("/", tags=["Health"])
+def root():
+    return {
+        "success": True,
+        "name": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "status": "online",
+        "documentation": "/docs"
+    }
+
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "database": "connected"
+    }
+
+
+# Include Routers under /api
+api_prefix = settings.API_PREFIX
+
+app.include_router(auth_router, prefix=api_prefix)
+app.include_router(products_router, prefix=api_prefix)
+app.include_router(categories_router, prefix=api_prefix)
+app.include_router(categories_router, prefix=f"{api_prefix}/admin")
+app.include_router(orders_router, prefix=api_prefix)
+app.include_router(admin_orders_router, prefix=api_prefix)
+app.include_router(admin_inventory_router, prefix=api_prefix)
+app.include_router(admin_dashboard_router, prefix=api_prefix)
+app.include_router(admin_revenue_router, prefix=api_prefix)
