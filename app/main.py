@@ -74,20 +74,19 @@ app = FastAPI(
 )
 
 # Vercel Serverless Path Normalization Middleware
-class VercelMiddleware:
-    def __init__(self, app):
-        self.app = app
+from starlette.middleware.base import BaseHTTPMiddleware
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            p = scope.get("path", "")
-            for prefix in ["/api/index.py", "/api/index", "/app/main.py", "/app/main"]:
-                if p == prefix or p.startswith(prefix + "/"):
-                    np = p[len(prefix):]
-                    scope["path"] = np if np else "/"
-                    scope["raw_path"] = scope["path"].encode("utf-8")
-                    break
-        await self.app(scope, receive, send)
+class VercelMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        for prefix in ["/api/index.py", "/api/index", "/app/main.py", "/app/main"]:
+            if path == prefix or path.startswith(prefix + "/"):
+                new_path = path[len(prefix):]
+                request.scope["path"] = new_path if new_path else "/"
+                if "raw_path" in request.scope:
+                    request.scope["raw_path"] = request.scope["path"].encode("utf-8")
+                break
+        return await call_next(request)
 
 
 app.add_middleware(VercelMiddleware)
