@@ -165,9 +165,10 @@ def health_check():
     }
 
 
-# Include Routers under /api
+# Include Routers under /api AND direct root for complete Vercel & client compatibility
 api_prefix = settings.API_PREFIX
 
+# 1. Mount under /api
 app.include_router(auth_router, prefix=api_prefix)
 app.include_router(products_router, prefix=api_prefix)
 app.include_router(categories_router, prefix=api_prefix)
@@ -177,3 +178,14 @@ app.include_router(admin_orders_router, prefix=api_prefix)
 app.include_router(admin_inventory_router, prefix=api_prefix)
 app.include_router(admin_dashboard_router, prefix=api_prefix)
 app.include_router(admin_revenue_router, prefix=api_prefix)
+
+# 2. Mount directly without /api prefix
+app.include_router(auth_router)
+app.include_router(products_router)
+app.include_router(categories_router)
+app.include_router(categories_router, prefix="/admin")
+app.include_router(orders_router)
+app.include_router(admin_orders_router)
+app.include_router(admin_inventory_router)
+app.include_router(admin_dashboard_router)
+app.include_router(admin_revenue_router)
