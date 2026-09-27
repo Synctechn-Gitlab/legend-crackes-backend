@@ -116,12 +116,7 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
         content={
             "success": False,
             "message": str(exc.detail),
-            "detail": str(exc.detail),
-            "request_path": request.url.path,
-            "headers": dict(request.headers.items()),
-            "scope_path": request.scope.get("path"),
-            "scope_raw_path": request.scope.get("raw_path", b"").decode("utf-8", errors="ignore"),
-            "scope_query_string": request.scope.get("query_string", b"").decode("utf-8", errors="ignore")
+            "detail": str(exc.detail)
         }
     )
 
