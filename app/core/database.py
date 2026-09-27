@@ -10,6 +10,7 @@ engine_kwargs = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
+    connect_args = {"sslmode": "require"}
     # PostgreSQL pool settings for high concurrency (3000+ products, high throughput)
     engine_kwargs = {
         "pool_size": settings.DB_POOL_SIZE,
