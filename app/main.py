@@ -53,14 +53,6 @@ def run_db_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables exist and run missing column migrations
-    logger.info("Initializing database schema...")
-    try:
-        Base.metadata.create_all(bind=engine)
-        run_db_migrations()
-        logger.info("Database schema initialized successfully.")
-    except Exception as e:
-        logger.error(f"Database startup initialization error: {e}")
     logger.info(f"{settings.PROJECT_NAME} v{settings.VERSION} started successfully.")
     yield
     # Shutdown

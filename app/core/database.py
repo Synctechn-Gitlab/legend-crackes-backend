@@ -10,13 +10,12 @@ engine_kwargs = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
-    connect_args = {"sslmode": "require"}
-    # PostgreSQL pool settings for high concurrency (3000+ products, high throughput)
+    # Optimized pool settings for high concurrency and serverless cold starts
     engine_kwargs = {
-        "pool_size": settings.DB_POOL_SIZE,
-        "max_overflow": settings.DB_MAX_OVERFLOW,
-        "pool_timeout": settings.DB_POOL_TIMEOUT,
-        "pool_recycle": settings.DB_POOL_RECYCLE,
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_timeout": 10,
+        "pool_recycle": 1800,
         "pool_pre_ping": True,
     }
 
