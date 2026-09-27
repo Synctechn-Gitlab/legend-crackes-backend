@@ -18,9 +18,11 @@ async def app(scope, receive, send):
             if path_list and path_list[0]:
                 target_path = "/" + path_list[0].lstrip("/")
                 scope["path"] = target_path
+                scope["raw_path"] = target_path.encode("utf-8")
                 scope["query_string"] = urllib.parse.urlencode(parsed, doseq=True).encode("utf-8")
         elif scope.get("path", "").startswith("/api/index"):
             scope["path"] = "/"
+            scope["raw_path"] = b"/"
 
     await raw_app(scope, receive, send)
 
