@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "sqlite:///./crackers.db"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres:i%2B5ZZ52-K%21E%24xt-@db.diaqqdefxfujlbifxkko.supabase.co:6543/postgres"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 40
     DB_POOL_TIMEOUT: int = 30
@@ -35,6 +35,7 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = [
+        "*",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
@@ -49,15 +50,20 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def sanitize_database_url(cls, v: str) -> str:
-        if isinstance(v, str) and "@" in v:
-            import re
-            import urllib.parse
-            prefix_match = re.match(r"^([a-zA-Z0-9\+\-\._]+://)([^:]+):(.+)@([^@]+)$", v)
-            if prefix_match:
-                proto, user, password, host_part = prefix_match.groups()
-                # If password contains unencoded @, quote it
-                safe_pwd = urllib.parse.quote(urllib.parse.unquote(password), safe="")
-                return f"{proto}{user}:{safe_pwd}@{host_part}"
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                v = v.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif v.startswith("postgresql://") and not v.startswith("postgresql+"):
+                v = v.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+            if "@" in v:
+                import re
+                import urllib.parse
+                prefix_match = re.match(r"^([a-zA-Z0-9\+\-\._]+://)([^:]+):(.+)@([^@]+)$", v)
+                if prefix_match:
+                    proto, user, password, host_part = prefix_match.groups()
+                    safe_pwd = urllib.parse.quote(urllib.parse.unquote(password), safe="")
+                    return f"{proto}{user}:{safe_pwd}@{host_part}"
         return v
 
     @field_validator("CORS_ORIGINS", mode="before")
