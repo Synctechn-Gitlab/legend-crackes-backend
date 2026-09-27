@@ -15,9 +15,7 @@ async def app(scope, receive, send):
             parsed = urllib.parse.parse_qs(qs_str, keep_blank_values=True)
             path_list = parsed.pop("path", None)
             if path_list and path_list[0]:
-                target_path = path_list[0]
-                if not target_path.startswith("/"):
-                    target_path = "/" + target_path
+                target_path = "/" + path_list[0].lstrip("/")
                 scope["path"] = target_path
                 scope["query_string"] = urllib.parse.urlencode(parsed, doseq=True).encode("utf-8")
         elif scope.get("path", "").startswith("/api/index"):
