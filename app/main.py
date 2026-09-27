@@ -81,8 +81,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Configuration
-origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+# Vercel Serverless Path Normalization Middleware
+class VercelMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            p = scope.get("path", "")
+            for prefix in ["/api/index.py", "/api/index", "/app/main.py", "/app/main"]:
+                if p == prefix or p.startswith(prefix + "/"):
+                    np = p[len(prefix):]
+                    scope["path"] = np if np else "/"
+                    scope["raw_path"] = scope["path"].encode("utf-8")
+                    break
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(VercelMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
