@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:i%2B5ZZ52-K%21E%24xt-@db.diaqqdefxfujlbifxkko.supabase.co:6543/postgres"
+    DATABASE_URL: str = "postgresql+pg8000://postgres:i%2B5ZZ52-K%21E%24xt-@db.diaqqdefxfujlbifxkko.supabase.co:6543/postgres"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 40
     DB_POOL_TIMEOUT: int = 30
@@ -52,9 +52,11 @@ class Settings(BaseSettings):
     def sanitize_database_url(cls, v: str) -> str:
         if isinstance(v, str):
             if v.startswith("postgres://"):
-                v = v.replace("postgres://", "postgresql+psycopg2://", 1)
+                v = v.replace("postgres://", "postgresql+pg8000://", 1)
             elif v.startswith("postgresql://") and not v.startswith("postgresql+"):
-                v = v.replace("postgresql://", "postgresql+psycopg2://", 1)
+                v = v.replace("postgresql://", "postgresql+pg8000://", 1)
+            elif v.startswith("postgresql+psycopg2://"):
+                v = v.replace("postgresql+psycopg2://", "postgresql+pg8000://", 1)
 
             if "@" in v:
                 import re
