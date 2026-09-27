@@ -117,7 +117,8 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
             "success": False,
             "message": str(exc.detail),
             "detail": str(exc.detail),
-            "request_path": request.url.path
+            "request_path": request.url.path,
+            "headers": dict(request.headers)
         }
     )
 
