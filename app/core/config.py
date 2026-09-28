@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "postgresql+pg8000://postgres:i%2B5ZZ52-K%21E%24xt-@db.diaqqdefxfujlbifxkko.supabase.co:6543/postgres"
+    DATABASE_URL: str = "postgresql+pg8000://postgres.diaqqdefxfujlbifxkko:i%2B5ZZ52-K%21E%24xt-@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 40
     DB_POOL_TIMEOUT: int = 30
@@ -57,6 +57,12 @@ class Settings(BaseSettings):
                 v = v.replace("postgresql://", "postgresql+pg8000://", 1)
             elif v.startswith("postgresql+psycopg2://"):
                 v = v.replace("postgresql+psycopg2://", "postgresql+pg8000://", 1)
+
+            # Transform direct IPv6-only db.<ref>.supabase.co to IPv4 dual-stack pooler for Vercel Lambdas
+            if "db.diaqqdefxfujlbifxkko.supabase.co" in v:
+                v = v.replace("db.diaqqdefxfujlbifxkko.supabase.co", "aws-0-ap-southeast-2.pooler.supabase.com")
+                if "postgres:" in v and "postgres.diaqqdefxfujlbifxkko:" not in v:
+                    v = v.replace("postgres:", "postgres.diaqqdefxfujlbifxkko:", 1)
 
             if "@" in v:
                 import re
