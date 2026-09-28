@@ -11,17 +11,14 @@ if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
     import ssl
+    from sqlalchemy.pool import NullPool
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
     connect_args = {"ssl_context": ssl_ctx}
-    # Optimized pool settings for high concurrency and serverless cold starts
+    # NullPool prevents stale socket freezing and TCP timeouts in serverless Lambdas
     engine_kwargs = {
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_timeout": 10,
-        "pool_recycle": 1800,
-        "pool_pre_ping": True,
+        "poolclass": NullPool,
     }
 
 engine = create_engine(
