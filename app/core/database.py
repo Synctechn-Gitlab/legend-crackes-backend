@@ -10,6 +10,11 @@ engine_kwargs = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
+    import ssl
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    connect_args = {"ssl_context": ssl_ctx}
     # Optimized pool settings for high concurrency and serverless cold starts
     engine_kwargs = {
         "pool_size": 5,
