@@ -78,14 +78,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 class VercelMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
-        for prefix in ["/api/index.py", "/api/index", "/app/main.py", "/app/main"]:
-            if path == prefix or path.startswith(prefix + "/"):
-                new_path = path[len(prefix):]
-                request.scope["path"] = new_path if new_path else "/"
-                if "raw_path" in request.scope:
-                    request.scope["raw_path"] = request.scope["path"].encode("utf-8")
-                break
+        qs = request.query_params
+        if "path" in qs and qs["path"]:
+            target_path = "/" + qs["path"].lstrip("/")
+            request.scope["path"] = target_path
+            if "raw_path" in request.scope:
+                request.scope["raw_path"] = target_path.encode("utf-8")
+        elif request.url.path.startswith("/api/index"):
+            request.scope["path"] = "/"
+            if "raw_path" in request.scope:
+                request.scope["raw_path"] = b"/"
         return await call_next(request)
 
 
@@ -168,6 +170,40 @@ def root():
         "status": "online",
         "documentation": "/docs"
     }
+
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "database": "connected"
+    }
+
+
+# Convenience Root Aliases for Frontend Client Compatibility
+from app.services.product_service import product_service
+from app.core.database import get_db
+from sqlalchemy.orm import Session
+from fastapi import Depends
+
+@app.get("/featured", tags=["Products"])
+def get_featured_root(limit: int = 8, db: Session = Depends(get_db)):
+    res = product_service.list_products(db=db, page=1, limit=limit, is_featured=True, sort_by="featured")
+    return res.products
+
+@app.get("/special-offers", tags=["Products"])
+def get_special_offers_root(limit: int = 4, db: Session = Depends(get_db)):
+    res = product_service.list_products(db=db, page=1, limit=limit, sort_by="discount")
+    return res.products
+
+from app.core.dependencies import get_current_admin
+from app.models.admin_user import AdminUser
+from app.schemas.admin import AdminResponse
+
+@app.get("/me", response_model=AdminResponse, tags=["Auth"])
+def get_me_root(current_admin: AdminUser = Depends(get_current_admin)):
+    return current_admin
 
 
 @app.get("/health", tags=["Health"])
