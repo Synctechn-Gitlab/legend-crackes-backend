@@ -16,11 +16,17 @@ class CategoryRepository(BaseRepository[Category]):
         return db.query(Category).filter(Category.is_active.is_(True)).order_by(Category.id.asc()).all()
 
     def get_with_counts(self, db: Session) -> List[dict]:
-        categories = db.query(Category).order_by(Category.id.asc()).all()
-        result = []
-        for cat in categories:
-            cnt = db.query(Product).filter(Product.category_id == cat.id, Product.is_active.is_(True)).count()
-            result.append({
+        from sqlalchemy import func
+        results = (
+            db.query(Category, func.count(Product.id).label("product_count"))
+            .outerjoin(Product, (Product.category_id == Category.id) & (Product.is_active == True))
+            .group_by(Category.id)
+            .order_by(Category.id.asc())
+            .all()
+        )
+        res = []
+        for cat, cnt in results:
+            res.append({
                 "id": cat.id,
                 "name": cat.name,
                 "slug": cat.slug,
@@ -31,7 +37,7 @@ class CategoryRepository(BaseRepository[Category]):
                 "updated_at": cat.updated_at,
                 "product_count": cnt
             })
-        return result
+        return res
 
 
 category_repo = CategoryRepository()

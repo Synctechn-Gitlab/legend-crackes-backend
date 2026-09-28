@@ -48,22 +48,23 @@ class ProductRepository(BaseRepository[Product]):
         sort_by: Optional[str] = "featured"
     ) -> Tuple[List[Product], int]:
         """High performance indexed query across 3000+ items."""
-        query = db.query(Product).options(joinedload(Product.category))
+        from sqlalchemy import func
+        base_query = db.query(Product)
 
         # Filter by active status
         if is_active is not None:
-            query = query.filter(Product.is_active == is_active)
+            base_query = base_query.filter(Product.is_active == is_active)
 
         # Category filter (by ID or Slug)
         if category_id is not None:
-            query = query.filter(Product.category_id == category_id)
+            base_query = base_query.filter(Product.category_id == category_id)
         elif category_slug and category_slug != "all":
-            query = query.join(Product.category).filter(Category.slug == category_slug.lower())
+            base_query = base_query.join(Product.category).filter(Category.slug == category_slug.lower())
 
         # Search filter (name or product code)
         if search and search.strip():
             term = f"%{search.strip()}%"
-            query = query.filter(
+            base_query = base_query.filter(
                 or_(
                     Product.name.ilike(term),
                     Product.product_code.ilike(term),
@@ -73,41 +74,44 @@ class ProductRepository(BaseRepository[Product]):
 
         # Price range filters
         if price_min is not None and price_min > 0:
-            query = query.filter(Product.selling_price >= price_min)
+            base_query = base_query.filter(Product.selling_price >= price_min)
         if price_max is not None and price_max > 0:
-            query = query.filter(Product.selling_price <= price_max)
+            base_query = base_query.filter(Product.selling_price <= price_max)
 
         # Featured filter
         if is_featured is not None:
-            query = query.filter(Product.is_featured == is_featured)
+            base_query = base_query.filter(Product.is_featured == is_featured)
 
         # In-stock filter
         if in_stock is True:
-            query = query.filter(Product.stock_quantity > 0)
+            base_query = base_query.filter(Product.stock_quantity > 0)
         elif in_stock is False:
-            query = query.filter(Product.stock_quantity == 0)
+            base_query = base_query.filter(Product.stock_quantity == 0)
 
-        # Total count before pagination
-        total = query.count()
+        # Fast total count
+        total = base_query.with_entities(func.count(Product.id)).scalar() or 0
+
+        # Items query with category preloaded
+        items_query = base_query.options(joinedload(Product.category))
 
         # Sorting
         sort_lower = (sort_by or "featured").lower()
         if sort_lower in ["price-asc", "price_low_high", "price_asc"]:
-            query = query.order_by(asc(Product.selling_price), asc(Product.id))
+            items_query = items_query.order_by(asc(Product.selling_price), asc(Product.id))
         elif sort_lower in ["price-desc", "price_high_low", "price_desc"]:
-            query = query.order_by(desc(Product.selling_price), desc(Product.id))
+            items_query = items_query.order_by(desc(Product.selling_price), desc(Product.id))
         elif sort_lower in ["discount", "discount_high"]:
-            query = query.order_by(desc(Product.discount_percentage), asc(Product.id))
+            items_query = items_query.order_by(desc(Product.discount_percentage), asc(Product.id))
         elif sort_lower in ["name", "name_asc"]:
-            query = query.order_by(asc(Product.name))
+            items_query = items_query.order_by(asc(Product.name))
         elif sort_lower in ["new", "latest"]:
-            query = query.order_by(desc(Product.created_at))
+            items_query = items_query.order_by(desc(Product.created_at))
         elif sort_lower in ["stock_low", "low_stock"]:
-            query = query.order_by(asc(Product.stock_quantity))
+            items_query = items_query.order_by(asc(Product.stock_quantity))
         else:  # featured default
-            query = query.order_by(desc(Product.is_featured), desc(Product.id))
+            items_query = items_query.order_by(desc(Product.is_featured), desc(Product.id))
 
-        products = query.offset(offset).limit(limit).all()
+        products = items_query.offset(offset).limit(limit).all()
         return products, total
 
 
