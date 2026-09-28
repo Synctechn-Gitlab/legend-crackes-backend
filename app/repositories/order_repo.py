@@ -57,8 +57,10 @@ class OrderRepository(BaseRepository[Order]):
         # Fast total count
         total = base_query.with_entities(func.count(Order.id)).scalar() or 0
 
-        # Items query with joinedload for order items
-        items_query = base_query.options(joinedload(Order.items))
+        # Items query with preloaded items and products to eliminate N+1 latency
+        items_query = base_query.options(
+            joinedload(Order.items).joinedload(OrderItem.product)
+        )
         orders = items_query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
         return orders, total
 

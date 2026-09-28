@@ -43,8 +43,11 @@ class AnalyticsRepository:
         low_stock_count = 0
         low_stock_products = []
 
-        # Recent orders
-        recent_orders = db.query(Order).order_by(desc(Order.created_at)).limit(5).all()
+        # Recent orders with preloaded items
+        from sqlalchemy.orm import joinedload
+        recent_orders = db.query(Order).options(
+            joinedload(Order.items).joinedload(OrderItem.product)
+        ).order_by(desc(Order.created_at)).limit(5).all()
 
         return {
             "total_products": total_products,
