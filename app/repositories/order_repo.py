@@ -30,16 +30,17 @@ class OrderRepository(BaseRepository[Order]):
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None
     ) -> Tuple[List[Order], int]:
-        query = db.query(Order).options(joinedload(Order.items))
+        from sqlalchemy import func
+        base_query = db.query(Order)
 
         # Status filter
-        if status and status.lower() != "all":
-            query = query.filter(Order.order_status.ilike(status.strip()))
+        if status and status.strip() and status.strip().lower() != "all":
+            base_query = base_query.filter(Order.order_status.ilike(status.strip()))
 
         # Search filter (order number, customer phone, customer name)
         if search and search.strip():
             term = f"%{search.strip()}%"
-            query = query.filter(
+            base_query = base_query.filter(
                 or_(
                     Order.order_number.ilike(term),
                     Order.customer_phone.ilike(term),
@@ -49,12 +50,16 @@ class OrderRepository(BaseRepository[Order]):
 
         # Date filtering
         if date_from:
-            query = query.filter(Order.created_at >= date_from)
+            base_query = base_query.filter(Order.created_at >= date_from)
         if date_to:
-            query = query.filter(Order.created_at <= date_to)
+            base_query = base_query.filter(Order.created_at <= date_to)
 
-        total = query.count()
-        orders = query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
+        # Fast total count
+        total = base_query.with_entities(func.count(Order.id)).scalar() or 0
+
+        # Items query with joinedload for order items
+        items_query = base_query.options(joinedload(Order.items))
+        orders = items_query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
         return orders, total
 
 
