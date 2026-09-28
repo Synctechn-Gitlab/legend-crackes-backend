@@ -91,6 +91,9 @@ class VercelMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(VercelMiddleware)
 
+# CORS Configuration
+origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
