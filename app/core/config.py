@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     # App Info
-    PROJECT_NAME: str = "Sivakasi Fireworks E-Commerce API"
+    PROJECT_NAME: str = "Classic Legend Crackers E-Commerce API"
     VERSION: str = "1.0.0"
     API_PREFIX: str = "/api"
     ENVIRONMENT: str = "development"
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     DB_POOL_RECYCLE: int = 1800
 
     # Security & JWT
-    JWT_SECRET_KEY: str = "sivakasi_fireworks_ultra_secure_production_secret_key_2026_x928a"
+    JWT_SECRET_KEY: str = "classic_legend_crackers_ultra_secure_production_secret_key_2026_x928a"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

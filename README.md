@@ -1,6 +1,6 @@
-# Sivakasi Crackers E-Commerce REST API Backend
+# Classic Legend Crackers E-Commerce REST API Backend
 
-A production-ready, high-performance REST API backend for a Sivakasi fireworks e-commerce platform built with **Python 3.11+**, **FastAPI**, **SQLAlchemy 2.x**, **PostgreSQL**, **Pydantic v2**, and **Alembic**.
+A production-ready, high-performance REST API backend for the Classic Legend Crackers e-commerce platform built with **Python 3.11+**, **FastAPI**, **SQLAlchemy 2.x**, **PostgreSQL**, **Pydantic v2**, and **Alembic**.
 
 Designed from the ground up to support **3000+ products**, high-concurrency festival flash-sales, zero-trust server-side pricing recalculation, guest checkouts, and transactional inventory management with row locking.
 

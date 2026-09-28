@@ -40,7 +40,7 @@ def format_product_dict(prod) -> dict:
 
     my_p = my_p if my_p > 0 else round(sell_p * 0.4, 2)
     profit = round(sell_p - my_p, 2)
-    unit_val = prod.unit or "Sivakasi Pack"
+    unit_val = prod.unit or "Classic Legend Pack"
 
     return {
         "id": prod.id,

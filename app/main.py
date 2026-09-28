@@ -63,7 +63,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=(
-        "Production-grade, high-performance REST API backend for Sivakasi Fireworks E-Commerce platform. "
+        "Production-grade, high-performance REST API backend for Classic Legend Crackers E-Commerce platform. "
         "Engineered to seamlessly support 3000+ catalog products, guest checkouts, atomic inventory locking, "
         "and real-time administration with comprehensive analytics."
     ),
