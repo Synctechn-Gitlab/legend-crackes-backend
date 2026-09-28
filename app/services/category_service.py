@@ -1,3 +1,4 @@
+import time
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,8 +10,24 @@ from app.core.logging import audit_logger
 
 
 class CategoryService:
+    def __init__(self):
+        self._cache = None
+        self._cache_time = 0
+        self.CACHE_TTL = 60  # 60 seconds memory cache
+
+    def invalidate_cache(self):
+        self._cache = None
+        self._cache_time = 0
+
     def list_categories(self, db: Session, active_only: bool = True) -> List[CategoryResponse]:
-        raw = category_repo.get_with_counts(db)
+        now = time.time()
+        if self._cache is not None and (now - self._cache_time) < self.CACHE_TTL:
+            raw = self._cache
+        else:
+            raw = category_repo.get_with_counts(db)
+            self._cache = raw
+            self._cache_time = now
+
         if active_only:
             raw = [c for c in raw if c["is_active"]]
         return [CategoryResponse(**c) for c in raw]
@@ -24,6 +41,7 @@ class CategoryService:
         return CategoryResponse(**(match or cat.__dict__))
 
     def create_category(self, db: Session, data: CategoryCreate, admin_username: str) -> CategoryResponse:
+        self.invalidate_cache()
         base_slug = slugify(data.slug or data.name)
         slug = base_slug
         idx = 1
@@ -45,6 +63,7 @@ class CategoryService:
         return self.get_by_id(db, cat.id)
 
     def update_category(self, db: Session, category_id: int, updates: CategoryUpdate, admin_username: str) -> CategoryResponse:
+        self.invalidate_cache()
         cat = category_repo.get(db, category_id)
         if not cat:
             raise HTTPException(status_code=404, detail="Category not found.")
@@ -66,6 +85,7 @@ class CategoryService:
         return self.get_by_id(db, cat.id)
 
     def delete_category(self, db: Session, category_id: int, admin_username: str) -> dict:
+        self.invalidate_cache()
         cat = category_repo.get(db, category_id)
         if not cat:
             raise HTTPException(status_code=404, detail="Category not found.")
