@@ -134,10 +134,11 @@ def seed_database(target_product_count: int = 3000):
         logger.info("Seeding Categories...")
         category_map = {}
         for cat_data in CATEGORIES_DATA:
-            prefix = cat_data.pop("prefix")
-            cat = db.query(Category).filter(Category.slug == cat_data["slug"]).first()
+            prefix = cat_data["prefix"]
+            clean_cat_data = {k: v for k, v in cat_data.items() if k != "prefix"}
+            cat = db.query(Category).filter(Category.slug == clean_cat_data["slug"]).first()
             if not cat:
-                cat = Category(**cat_data)
+                cat = Category(**clean_cat_data)
                 db.add(cat)
                 db.commit()
                 db.refresh(cat)
