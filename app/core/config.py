@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     ]
 
     # Business Defaults
-    DEFAULT_DELIVERY_CHARGE: float = 150.0
+    DEFAULT_DELIVERY_CHARGE: float = 500.0
     FREE_DELIVERY_THRESHOLD: float = 3000.0
     MIN_ORDER_AMOUNT: float = 3000.0
 
