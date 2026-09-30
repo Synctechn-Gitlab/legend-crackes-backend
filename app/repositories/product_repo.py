@@ -61,12 +61,13 @@ class ProductRepository(BaseRepository[Product]):
         elif category_slug and category_slug != "all":
             base_query = base_query.join(Product.category).filter(Category.slug == category_slug.lower())
 
-        # Search filter (name or product code)
+        # Search filter (name, tamil_name, or product code)
         if search and search.strip():
             term = f"%{search.strip()}%"
             base_query = base_query.filter(
                 or_(
                     Product.name.ilike(term),
+                    Product.tamil_name.ilike(term),
                     Product.product_code.ilike(term),
                     Product.description.ilike(term)
                 )

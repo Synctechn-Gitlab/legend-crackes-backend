@@ -10,6 +10,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     product_code = Column(String(60), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)
+    tamil_name = Column(String(255), nullable=True, index=True)
     slug = Column(String(280), unique=True, nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
     description = Column(Text, nullable=True)

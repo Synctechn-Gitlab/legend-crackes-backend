@@ -46,6 +46,7 @@ def format_product_dict(prod) -> dict:
         "id": prod.id,
         "product_code": prod.product_code,
         "name": prod.name,
+        "tamil_name": getattr(prod, "tamil_name", None),
         "slug": prod.slug,
         "category_id": prod.category_id,
         "category_name": category_name,
@@ -77,6 +78,7 @@ def format_product_dict(prod) -> dict:
         "piecesPerBox": unit_val,
         "pieces_per_box": unit_val,
         "image": prod.image_url,
+        "tamilName": getattr(prod, "tamil_name", None),
     }
 
 

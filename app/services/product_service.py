@@ -118,6 +118,7 @@ class ProductService:
         prod = Product(
             product_code=product_code,
             name=data.name.strip(),
+            tamil_name=data.tamil_name.strip() if data.tamil_name else None,
             slug=slug,
             category_id=cat_id,
             description=data.description,

@@ -25,6 +25,15 @@ def _normalize_product_dict(data: Any) -> Any:
 
     d = dict(data)
 
+    # 0. Tamil Name / Secondary Name mapping
+    if "tamilName" in d and "tamil_name" not in d:
+        d["tamil_name"] = d.pop("tamilName")
+    elif "secondary_name" in d and "tamil_name" not in d:
+        d["tamil_name"] = d.pop("secondary_name")
+    if "tamil_name" in d:
+        val = d["tamil_name"]
+        d["tamil_name"] = str(val).strip() if val and str(val).strip() else None
+
     # 1. Product code / code mapping & cleaning
     if "code" in d and "product_code" not in d:
         d["product_code"] = d.pop("code")
@@ -171,6 +180,7 @@ def _normalize_product_dict(data: Any) -> Any:
 
 class ProductBase(BaseModel):
     name: str
+    tamil_name: Optional[str] = None
     product_code: Optional[str] = None
     slug: Optional[str] = None
     category_id: Optional[int] = None
@@ -201,6 +211,7 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     product_code: Optional[str] = None
     name: Optional[str] = None
+    tamil_name: Optional[str] = None
     slug: Optional[str] = None
     category_id: Optional[int] = None
     category: Optional[str] = None
@@ -238,6 +249,7 @@ class ProductResponse(BaseModel):
     id: int
     product_code: str
     name: str
+    tamil_name: Optional[str] = None
     slug: str
     category_id: Optional[int] = None
     category_name: Optional[str] = None
@@ -270,6 +282,7 @@ class ProductResponse(BaseModel):
     piecesPerBox: Optional[str] = None
     pieces_per_box: Optional[str] = None
     image: Optional[str] = None
+    tamilName: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
