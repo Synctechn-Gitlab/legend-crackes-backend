@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
-from datetime import datetime, time
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from datetime import datetime, time, timedelta
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, desc, case, and_
 from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.category import Category
@@ -9,50 +9,45 @@ from app.models.category import Category
 
 class AnalyticsRepository:
     def get_dashboard_metrics(self, db: Session) -> Dict[str, Any]:
-        total_products = db.query(Product).count()
-        active_products = db.query(Product).filter(Product.is_active.is_(True)).count()
-        
-        total_orders = db.query(Order).count()
-        pending_orders = db.query(Order).filter(Order.order_status.ilike("pending")).count()
-        completed_orders = db.query(Order).filter(Order.order_status.ilike("delivered")).count()
-        
-        # Revenue calculations
-        revenue_sum = db.query(func.sum(Order.total_amount)).filter(
-            Order.order_status.notin_(["Cancelled", "cancelled"])
-        ).scalar() or 0.0
+        today_start = datetime.combine(datetime.now().date(), time.min)
+        week_start = datetime.now() - timedelta(days=7)
 
-        # Profit calculation: sum((OrderItem.unit_price - func.coalesce(Product.my_price, Product.original_price)) * OrderItem.quantity)
+        # 1. Product Stats (1 pass)
+        prod_res = db.query(
+            func.count(Product.id).label("total"),
+            func.sum(case((Product.is_active.is_(True), 1), else_=0)).label("active")
+        ).first()
+        total_products = prod_res[0] or 0 if prod_res else 0
+        active_products = int(prod_res[1] or 0) if prod_res else 0
+
+        # 2. Order & Revenue Stats (1 pass)
+        order_res = db.query(
+            func.count(Order.id).label("total_orders"),
+            func.sum(case((func.lower(Order.order_status) == "pending", 1), else_=0)).label("pending_orders"),
+            func.sum(case((func.lower(Order.order_status) == "delivered", 1), else_=0)).label("completed_orders"),
+            func.sum(case((func.lower(Order.order_status) != "cancelled", Order.total_amount), else_=0)).label("total_revenue"),
+            func.sum(case((and_(func.lower(Order.order_status) != "cancelled", Order.created_at >= today_start), Order.total_amount), else_=0)).label("today_revenue"),
+            func.sum(case((and_(func.lower(Order.order_status) != "cancelled", Order.created_at >= week_start), Order.total_amount), else_=0)).label("weekly_revenue")
+        ).first()
+
+        total_orders = order_res[0] or 0 if order_res else 0
+        pending_orders = int(order_res[1] or 0) if order_res else 0
+        completed_orders = int(order_res[2] or 0) if order_res else 0
+        total_revenue = float(order_res[3] or 0.0) if order_res else 0.0
+        today_revenue = float(order_res[4] or 0.0) if order_res else 0.0
+        weekly_revenue = float(order_res[5] or 0.0) if order_res else 0.0
+
+        # 3. Profit calculation
         profit_query = db.query(
             func.sum((OrderItem.unit_price - func.coalesce(Product.my_price, Product.original_price)) * OrderItem.quantity)
         ).join(Product, Product.id == OrderItem.product_id)\
          .join(Order, Order.id == OrderItem.order_id)\
-         .filter(Order.order_status.notin_(["Cancelled", "cancelled"])).scalar()
-        
-        total_revenue = float(revenue_sum)
+         .filter(func.lower(Order.order_status) != "cancelled").scalar()
+
         total_profit = float(profit_query) if profit_query is not None else 0.0
         total_cost = round(total_revenue - total_profit, 2)
-        
-        # Today's revenue
-        today_start = datetime.combine(datetime.now().date(), time.min)
-        today_revenue = db.query(func.sum(Order.total_amount)).filter(
-            Order.created_at >= today_start,
-            Order.order_status.notin_(["Cancelled", "cancelled"])
-        ).scalar() or 0.0
 
-        # Weekly revenue (last 7 days)
-        from datetime import timedelta
-        week_start = datetime.now() - timedelta(days=7)
-        weekly_revenue = db.query(func.sum(Order.total_amount)).filter(
-            Order.created_at >= week_start,
-            Order.order_status.notin_(["Cancelled", "cancelled"])
-        ).scalar() or 0.0
-
-        # Stock quantity tracking
-        low_stock_count = 0
-        low_stock_products = []
-
-        # Recent orders with preloaded items
-        from sqlalchemy.orm import joinedload
+        # 4. Recent orders with preloaded items
         recent_orders = db.query(Order).options(
             joinedload(Order.items).joinedload(OrderItem.product)
         ).order_by(desc(Order.created_at)).limit(5).all()
@@ -64,12 +59,12 @@ class AnalyticsRepository:
             "pending_orders": pending_orders,
             "completed_orders": completed_orders,
             "total_revenue": total_revenue,
-            "today_revenue": float(today_revenue),
-            "weekly_revenue": float(weekly_revenue),
+            "today_revenue": today_revenue,
+            "weekly_revenue": weekly_revenue,
             "total_profit": total_profit,
             "total_cost": total_cost,
-            "low_stock_count": low_stock_count,
-            "low_stock_products": low_stock_products,
+            "low_stock_count": 0,
+            "low_stock_products": [],
             "recent_orders": recent_orders
         }
 
