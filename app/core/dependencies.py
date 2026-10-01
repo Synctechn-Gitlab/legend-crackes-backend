@@ -39,7 +39,11 @@ def get_current_admin(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    admin = admin_repo.get(db, int(admin_id))
+    try:
+        admin = admin_repo.get(db, int(admin_id))
+    except (ValueError, TypeError):
+        admin = admin_repo.get_by_username(db, str(admin_id))
+
     if not admin or not admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
