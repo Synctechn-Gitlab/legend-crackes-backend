@@ -46,6 +46,8 @@ def run_db_migrations():
                     conn.execute(text("ALTER TABLE products ADD COLUMN original_price NUMERIC(10, 2) DEFAULT 0.00;"))
                 if "my_price" not in columns:
                     conn.execute(text("ALTER TABLE products ADD COLUMN my_price NUMERIC(10, 2) DEFAULT 0.00;"))
+                if "tamil_name" not in columns:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN tamil_name VARCHAR(255);"))
         logger.info("Database migration check completed successfully.")
     except Exception as e:
         logger.warning(f"Database migration check warning: {e}")
