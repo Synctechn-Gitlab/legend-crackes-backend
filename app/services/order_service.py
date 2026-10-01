@@ -214,6 +214,14 @@ class OrderService:
         order.order_status = clean_status
         db.commit()
         db.refresh(order)
+        
+        # Invalidate analytics cache so Dashboard & Revenue stats reflect instant updates
+        try:
+            from app.services.analytics_service import invalidate_analytics_cache
+            invalidate_analytics_cache()
+        except Exception:
+            pass
+
         audit_logger.info(f"Order #{order.order_number} status changed: {old_status} -> {clean_status} by admin {admin_username}")
         return OrderResponse(**format_order_dict(order))
 
@@ -239,6 +247,13 @@ class OrderService:
 
         db.commit()
         db.refresh(order)
+
+        try:
+            from app.services.analytics_service import invalidate_analytics_cache
+            invalidate_analytics_cache()
+        except Exception:
+            pass
+
         audit_logger.info(f"Order #{order.order_number} extra discount set to {pct}% (-Rs.{extra_disc_amt}) by admin {admin_username}")
         return OrderResponse(**format_order_dict(order))
 
