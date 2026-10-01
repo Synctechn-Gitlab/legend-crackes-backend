@@ -176,6 +176,7 @@ class AnalyticsRepository:
 
             return trend
         except Exception:
+            db.rollback()
             return []
 
 
