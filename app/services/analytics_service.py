@@ -63,7 +63,7 @@ class AnalyticsService:
         total_profit = metrics.get("total_profit", 0.0)
         total_cost = metrics.get("total_cost", 0.0)
 
-        monthly_trend = []
+        monthly_trend = analytics_repo.get_revenue_trend(db, time_range=time_range)
 
         cat_sales = analytics_repo.get_category_sales(db)
         top_prods = analytics_repo.get_top_products(db)

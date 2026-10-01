@@ -134,5 +134,34 @@ class AnalyticsRepository:
 
         return data
 
+    def get_revenue_trend(self, db: Session, time_range: str = "monthly") -> List[Dict[str, Any]]:
+        date_col = func.to_char(Order.created_at, 'Mon YYYY')
+        if time_range == "daily":
+            date_col = func.to_char(Order.created_at, 'YYYY-MM-DD')
+        elif time_range == "weekly":
+            date_col = func.to_char(Order.created_at, 'YYYY-IW')
+
+        results = db.query(
+            date_col.label("period"),
+            func.sum(Order.total_amount).label("revenue"),
+            func.count(Order.id).label("orders")
+        ).filter(
+            Order.order_status.notin_(["Cancelled", "cancelled"])
+        ).group_by(date_col).all()
+
+        trend = []
+        for r in results:
+            trend.append({
+                "period": str(r[0] or "N/A"),
+                "month": str(r[0] or "N/A"),
+                "date": str(r[0] or "N/A"),
+                "revenue": float(r[1] or 0.0),
+                "sales": float(r[1] or 0.0),
+                "orders": int(r[2] or 0),
+                "orderCount": int(r[2] or 0)
+            })
+
+        return trend
+
 
 analytics_repo = AnalyticsRepository()
