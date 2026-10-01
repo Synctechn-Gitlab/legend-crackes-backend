@@ -136,12 +136,21 @@ class AnalyticsRepository:
 
     def get_revenue_trend(self, db: Session, time_range: str = "monthly") -> List[Dict[str, Any]]:
         try:
-            if time_range == "daily":
-                trunc_col = func.date_trunc('day', Order.created_at)
-            elif time_range == "weekly":
-                trunc_col = func.date_trunc('week', Order.created_at)
+            is_sqlite = db.bind.dialect.name == "sqlite" if (db and hasattr(db, "bind") and db.bind) else False
+            if is_sqlite:
+                if time_range == "daily":
+                    trunc_col = func.strftime('%Y-%m-%d', Order.created_at)
+                elif time_range == "weekly":
+                    trunc_col = func.strftime('%Y-%W', Order.created_at)
+                else:
+                    trunc_col = func.strftime('%Y-%m', Order.created_at)
             else:
-                trunc_col = func.date_trunc('month', Order.created_at)
+                if time_range == "daily":
+                    trunc_col = func.date_trunc('day', Order.created_at)
+                elif time_range == "weekly":
+                    trunc_col = func.date_trunc('week', Order.created_at)
+                else:
+                    trunc_col = func.date_trunc('month', Order.created_at)
 
             results = db.query(
                 trunc_col.label("period_dt"),
@@ -155,7 +164,9 @@ class AnalyticsRepository:
             for r in results:
                 dt = r[0]
                 if dt:
-                    if time_range == "daily":
+                    if isinstance(dt, str):
+                        fmt_str = dt
+                    elif time_range == "daily":
                         fmt_str = dt.strftime("%Y-%m-%d")
                     elif time_range == "weekly":
                         fmt_str = f"Week {dt.strftime('%V, %Y')}"
