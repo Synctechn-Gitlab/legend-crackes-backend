@@ -12,7 +12,16 @@ from app.utils.formatters import format_product_dict, slugify
 from app.core.logging import audit_logger
 
 
+import time
+
 class ProductService:
+    def __init__(self):
+        self._cache = {}
+        self.CACHE_TTL = 30  # 30 seconds memory cache
+
+    def invalidate_cache(self):
+        self._cache.clear()
+
     def list_products(
         self,
         db: Session,
@@ -36,6 +45,21 @@ class ProductService:
             category_id = int(category_slug)
             category_slug = None
 
+        # Cache key for landing page queries
+        is_simple_query = not search and not category_id and not category_slug and price_min is None and price_max is None and in_stock is None and is_active is True
+        cache_key = None
+        if is_simple_query:
+            if is_featured is True and safe_page == 1 and safe_limit in [8, 12, 16]:
+                cache_key = f"featured_{safe_limit}"
+            elif sort_by == "discount" and safe_page == 1 and safe_limit in [4, 8, 12]:
+                cache_key = f"special_offers_{safe_limit}"
+
+        now = time.time()
+        if cache_key and cache_key in self._cache:
+            cached_time, cached_res = self._cache[cache_key]
+            if (now - cached_time) < self.CACHE_TTL:
+                return cached_res
+
         products, total = product_repo.query_products(
             db=db,
             offset=offset,
@@ -54,13 +78,18 @@ class ProductService:
         total_pages = math.ceil(total / safe_limit) if total > 0 else 1
         formatted = [ProductResponse(**format_product_dict(p)) for p in products]
 
-        return ProductPaginatedResponse(
+        result = ProductPaginatedResponse(
             products=formatted,
             total=total,
             page=safe_page,
             limit=safe_limit,
             total_pages=total_pages
         )
+
+        if cache_key:
+            self._cache[cache_key] = (now, result)
+
+        return result
 
     def get_by_id(self, db: Session, product_id: int) -> ProductResponse:
         prod = product_repo.get_by_id(db, product_id)
@@ -81,6 +110,7 @@ class ProductService:
         return ProductResponse(**format_product_dict(prod))
 
     def create_product(self, db: Session, data: ProductCreate, admin_username: str) -> ProductResponse:
+        self.invalidate_cache()
         # Product code generation or duplicate check
         product_code = (data.product_code or "").strip().upper()
         if not product_code:
@@ -147,6 +177,7 @@ class ProductService:
         return ProductResponse(**format_product_dict(prod))
 
     def update_product(self, db: Session, product_id: int, updates: ProductUpdate, admin_username: str) -> ProductResponse:
+        self.invalidate_cache()
         prod = product_repo.get_by_id(db, product_id)
         if not prod:
             raise HTTPException(status_code=404, detail="Product not found.")
@@ -182,6 +213,7 @@ class ProductService:
         return ProductResponse(**format_product_dict(prod))
 
     def update_stock(self, db: Session, product_id: int, new_stock: int, admin_username: str) -> ProductResponse:
+        self.invalidate_cache()
         if new_stock < 0:
             raise HTTPException(status_code=400, detail="Stock quantity cannot be negative.")
 
@@ -197,6 +229,7 @@ class ProductService:
         return ProductResponse(**format_product_dict(prod))
 
     def delete_product(self, db: Session, product_id: int, admin_username: str) -> dict:
+        self.invalidate_cache()
         prod = product_repo.get_by_id(db, product_id)
         if not prod:
             raise HTTPException(status_code=404, detail="Product not found.")

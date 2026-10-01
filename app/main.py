@@ -91,6 +91,9 @@ class VercelMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+from fastapi.middleware.gzip import GZipMiddleware
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(VercelMiddleware)
 
 # CORS Configuration
@@ -106,7 +109,7 @@ app.add_middleware(
 )
 
 
-# Global Middleware: Request timing & Logging
+# Global Middleware: Request timing, CDN Cache Headers & Logging
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -114,6 +117,12 @@ async def log_requests(request: Request, call_next):
     process_time = round((time.time() - start_time) * 1000, 2)
     response.headers["X-Process-Time-Ms"] = str(process_time)
     
+    # Add Edge CDN caching for public read endpoints
+    if request.method == "GET":
+        path = request.url.path
+        if path in ["/categories", "/featured", "/special-offers"] or path.startswith("/products"):
+            response.headers["Cache-Control"] = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
+
     # Do not spam logs on health checks
     if request.url.path not in ["/health", "/docs", "/openapi.json"]:
         logger.info(f"{request.method} {request.url.path} -> {response.status_code} ({process_time}ms)")
