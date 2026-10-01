@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from app.repositories.analytics_repo import analytics_repo
@@ -8,8 +9,24 @@ from app.schemas.product import ProductResponse
 from app.schemas.order import OrderResponse
 
 
+# High-performance 15-second in-memory TTL cache for serverless latency reduction
+_CACHE_TTL_SECONDS = 15
+_dashboard_cache: Dict[str, Any] = {"timestamp": 0, "data": None}
+_revenue_cache: Dict[str, Any] = {}
+
+
+def invalidate_analytics_cache():
+    global _dashboard_cache, _revenue_cache
+    _dashboard_cache = {"timestamp": 0, "data": None}
+    _revenue_cache.clear()
+
+
 class AnalyticsService:
     def get_dashboard(self, db: Session) -> DashboardStatsResponse:
+        now = time.time()
+        if _dashboard_cache["data"] and (now - _dashboard_cache["timestamp"]) < _CACHE_TTL_SECONDS:
+            return _dashboard_cache["data"]
+
         metrics = analytics_repo.get_dashboard_metrics(db)
         
         # Format recent orders and low stock products
@@ -24,7 +41,7 @@ class AnalyticsService:
         total_profit = metrics.get("total_profit", 0.0)
         total_cost = metrics.get("total_cost", 0.0)
 
-        return DashboardStatsResponse(
+        response = DashboardStatsResponse(
             total_products=metrics["total_products"],
             active_products=metrics["active_products"],
             total_orders=metrics["total_orders"],
@@ -55,7 +72,16 @@ class AnalyticsService:
             categoryWiseSales=category_sales,
         )
 
+        _dashboard_cache["timestamp"] = now
+        _dashboard_cache["data"] = response
+        return response
+
     def get_revenue_analytics(self, db: Session, time_range: str = "monthly") -> RevenueAnalyticsResponse:
+        now = time.time()
+        cache_entry = _revenue_cache.get(time_range)
+        if cache_entry and (now - cache_entry["timestamp"]) < _CACHE_TTL_SECONDS:
+            return cache_entry["data"]
+
         metrics = analytics_repo.get_dashboard_metrics(db)
         total_rev = metrics["total_revenue"]
         order_cnt = metrics["total_orders"]
@@ -70,7 +96,7 @@ class AnalyticsService:
 
         weekly_rev = metrics.get("weekly_revenue", 0.0)
 
-        return RevenueAnalyticsResponse(
+        response = RevenueAnalyticsResponse(
             revenue=total_rev,
             order_count=order_cnt,
             average_order_value=aov,
@@ -98,6 +124,9 @@ class AnalyticsService:
             salesByCategory=cat_sales,
             topSellingProducts=top_prods,
         )
+
+        _revenue_cache[time_range] = {"timestamp": now, "data": response}
+        return response
 
     def get_category_sales(self, db: Session) -> List[Dict[str, Any]]:
         return analytics_repo.get_category_sales(db)

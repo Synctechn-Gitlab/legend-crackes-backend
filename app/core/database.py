@@ -11,14 +11,17 @@ if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
     import ssl
-    from sqlalchemy.pool import NullPool
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
     connect_args = {"ssl_context": ssl_ctx}
-    # NullPool prevents stale socket freezing and TCP timeouts in serverless Lambdas
+    # Connection pooling with pre-ping to eliminate 7s TCP/SSL handshake latency
     engine_kwargs = {
-        "poolclass": NullPool,
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_timeout": 30,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
     }
 
 engine = create_engine(
