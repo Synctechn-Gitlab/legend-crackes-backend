@@ -135,33 +135,48 @@ class AnalyticsRepository:
         return data
 
     def get_revenue_trend(self, db: Session, time_range: str = "monthly") -> List[Dict[str, Any]]:
-        date_col = func.to_char(Order.created_at, 'Mon YYYY')
-        if time_range == "daily":
-            date_col = func.to_char(Order.created_at, 'YYYY-MM-DD')
-        elif time_range == "weekly":
-            date_col = func.to_char(Order.created_at, 'YYYY-IW')
+        try:
+            if time_range == "daily":
+                trunc_col = func.date_trunc('day', Order.created_at)
+            elif time_range == "weekly":
+                trunc_col = func.date_trunc('week', Order.created_at)
+            else:
+                trunc_col = func.date_trunc('month', Order.created_at)
 
-        results = db.query(
-            date_col.label("period"),
-            func.sum(Order.total_amount).label("revenue"),
-            func.count(Order.id).label("orders")
-        ).filter(
-            Order.order_status.notin_(["Cancelled", "cancelled"])
-        ).group_by(date_col).all()
+            results = db.query(
+                trunc_col.label("period_dt"),
+                func.sum(Order.total_amount).label("revenue"),
+                func.count(Order.id).label("orders")
+            ).filter(
+                Order.order_status.notin_(["Cancelled", "cancelled"])
+            ).group_by(trunc_col).order_by(trunc_col).all()
 
-        trend = []
-        for r in results:
-            trend.append({
-                "period": str(r[0] or "N/A"),
-                "month": str(r[0] or "N/A"),
-                "date": str(r[0] or "N/A"),
-                "revenue": float(r[1] or 0.0),
-                "sales": float(r[1] or 0.0),
-                "orders": int(r[2] or 0),
-                "orderCount": int(r[2] or 0)
-            })
+            trend = []
+            for r in results:
+                dt = r[0]
+                if dt:
+                    if time_range == "daily":
+                        fmt_str = dt.strftime("%Y-%m-%d")
+                    elif time_range == "weekly":
+                        fmt_str = f"Week {dt.strftime('%V, %Y')}"
+                    else:
+                        fmt_str = dt.strftime("%b %Y")
+                else:
+                    fmt_str = "N/A"
 
-        return trend
+                trend.append({
+                    "period": fmt_str,
+                    "month": fmt_str,
+                    "date": fmt_str,
+                    "revenue": float(r[1] or 0.0),
+                    "sales": float(r[1] or 0.0),
+                    "orders": int(r[2] or 0),
+                    "orderCount": int(r[2] or 0)
+                })
+
+            return trend
+        except Exception:
+            return []
 
 
 analytics_repo = AnalyticsRepository()
