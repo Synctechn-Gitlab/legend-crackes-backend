@@ -68,6 +68,8 @@ class AnalyticsService:
         cat_sales = analytics_repo.get_category_sales(db)
         top_prods = analytics_repo.get_top_products(db)
 
+        weekly_rev = metrics.get("weekly_revenue", 0.0)
+
         return RevenueAnalyticsResponse(
             revenue=total_rev,
             order_count=order_cnt,
@@ -76,7 +78,7 @@ class AnalyticsService:
             total_profit=total_profit,
             total_cost=total_cost,
             daily_revenue=metrics["today_revenue"],
-            weekly_revenue=round(total_rev * 0.25, 2),
+            weekly_revenue=weekly_rev,
             monthly_revenue=total_rev,
             revenue_growth="Live Real-time Metrics",
             monthly_trend=monthly_trend,
@@ -89,7 +91,7 @@ class AnalyticsService:
             orderCount=order_cnt,
             averageOrderValue=aov,
             dailyRevenue=metrics["today_revenue"],
-            weeklyRevenue=round(total_rev * 0.25, 2),
+            weeklyRevenue=weekly_rev,
             monthlyRevenue=total_rev,
             revenueGrowth="Live Real-time Metrics",
             monthlyTrend=monthly_trend,

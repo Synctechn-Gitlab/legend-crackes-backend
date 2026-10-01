@@ -29,7 +29,7 @@ class AnalyticsRepository:
          .filter(Order.order_status.notin_(["Cancelled", "cancelled"])).scalar()
         
         total_revenue = float(revenue_sum)
-        total_profit = float(profit_query) if profit_query is not None else round(total_revenue * 0.40, 2)
+        total_profit = float(profit_query) if profit_query is not None else 0.0
         total_cost = round(total_revenue - total_profit, 2)
         
         # Today's revenue
@@ -39,7 +39,15 @@ class AnalyticsRepository:
             Order.order_status.notin_(["Cancelled", "cancelled"])
         ).scalar() or 0.0
 
-        # Stock quantity tracking removed
+        # Weekly revenue (last 7 days)
+        from datetime import timedelta
+        week_start = datetime.now() - timedelta(days=7)
+        weekly_revenue = db.query(func.sum(Order.total_amount)).filter(
+            Order.created_at >= week_start,
+            Order.order_status.notin_(["Cancelled", "cancelled"])
+        ).scalar() or 0.0
+
+        # Stock quantity tracking
         low_stock_count = 0
         low_stock_products = []
 
@@ -57,6 +65,7 @@ class AnalyticsRepository:
             "completed_orders": completed_orders,
             "total_revenue": total_revenue,
             "today_revenue": float(today_revenue),
+            "weekly_revenue": float(weekly_revenue),
             "total_profit": total_profit,
             "total_cost": total_cost,
             "low_stock_count": low_stock_count,
